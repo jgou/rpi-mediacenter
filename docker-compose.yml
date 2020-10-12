@@ -1,0 +1,72 @@
+version: "2.1"
+
+services:
+
+  samba:
+    env_file: 
+      - ./samba.env
+    image: dperson/samba:rpi
+    container_name: samba
+    restart: unless-stopped
+    command: '-u "$SAMBA_USER;$SAMBA_PASSWORD" -s "media;/media;yes;no"'
+    stdin_open: true
+    tty: true
+    network_mode: host
+    ports:
+      - 139:130
+      - 445:445
+    volumes:
+      - /usr/share/zoneinfo/Europe/Madrid:/etc/localtime
+      - /home/pi/media:/media
+
+  rtorrent:
+    image: pablokbs/rutorrent-armhf
+    container_name: rtorrent
+    mem_limit: 128M
+    network_mode: host
+    ports:
+      - 80:80
+      - 51413:51413
+      - 6881:6881/udp
+    volumes:
+      - /home/pi/torrents-config/rtorrent:/config/rtorrent
+      - /home/pi/downloads:/downloads
+    restart: unless-stopped
+
+  transmission:
+    env_file: 
+      - ./transmission.env
+    image: linuxserver/transmission
+    container_name: transmission
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Madrid
+      - TRANSMISSION_WEB_HOME=/combustion-release/ #optional
+      - USER=$TRANSMISSION_USER
+      - PASS=$TRANSMISSION_PASSWORD
+    volumes:
+      - /home/pi/transmission/config:/config
+      - /home/pi/transmission/downloads:/downloads
+      - /home/pi/transmission/watch:/watch
+    ports:
+      - 9091:9091
+      - 51413:51413
+      - 51413:51413/udp
+    restart: unless-stopped
+
+  plex:
+    build:
+      context: ./pms-docker
+      dockerfile: Dockerfile.armv7
+    container_name: plex
+    restart: always
+    network_mode: host
+    environment:
+      - TZ="Europe/Madrid"
+    volumes:
+      - /home/pi/media/plex/config:/config
+      - /home/pi/media/plex/transcode:/transcode
+      - /home/pi/media/plex/data:/data
+    depends_on:
+      - samba
